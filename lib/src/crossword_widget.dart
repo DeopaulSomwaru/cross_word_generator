@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'package:crossword_generator/crossword_generator.dart';
 
 class CrosswordWidget extends StatefulWidget {
@@ -26,14 +27,10 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
   int _selectedCol = -1;
   bool _isHorizontal = true;
   String _highlightedWordDescription = "";
-  Set<String> _revealedCells = {};
+  Set<String> _revealedCells = {}; // New state variable
 
   final FocusNode _focusNode = FocusNode();
   final TextEditingController _inputController = TextEditingController();
-
-  double _cellSize = 30; // Default cell size
-  double _screenWidth = 0;
-  double _screenHeight = 0;
 
   @override
   void initState() {
@@ -47,32 +44,16 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       }
     });
     _generateLayout();
+    // Pass the reveal method to the parent
     widget.onRevealCurrentCellLetter(revealCurrentCellLetter);
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _updateScreenDimensions();
-  }
-
-  void _updateScreenDimensions() {
-    final mediaQuery = MediaQuery.of(context);
-    _screenWidth = mediaQuery.size.width;
-    _screenHeight = mediaQuery.size.height;
-    _calculateCellSize();
-  }
-
-  void _calculateCellSize() {
-    if (_table.isNotEmpty) {
-      // Calculate the maximum cell size to fit the grid on the screen
-      final maxCellWidth = _screenWidth / _table[0].length;
-      final maxCellHeight = _screenHeight / _table.length;
-      _cellSize = maxCellWidth < maxCellHeight ? maxCellWidth : maxCellHeight;
-
-      // Ensure the cell size is not too small
-      _cellSize = _cellSize.clamp(30, 50); // Adjust min/max cell size as needed
-    }
+  void dispose() {
+    _inputController.removeListener(_handleInput);
+    _inputController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   void _generateLayout() {
@@ -257,64 +238,70 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
 
     List<List<bool>> highlightedCells = _getHighlightedCells();
 
-    return Center(
-      child: Column(
-        children: _table.asMap().entries.map((entry) {
-          int rowIndex = entry.key;
-          List<String> row = entry.value;
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: row.asMap().entries.map((cellEntry) {
-              int colIndex = cellEntry.key;
-              String cell = cellEntry.value;
-              bool isCompletedCell = _isCellCompleted(rowIndex, colIndex);
-              bool isSelected = rowIndex == _selectedRow && colIndex == _selectedCol;
-              bool isHighlighted = highlightedCells[rowIndex][colIndex];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Center(
+          child: Column(
+            children: _table.asMap().entries.map((entry) {
+              int rowIndex = entry.key;
+              List<String> row = entry.value;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: row.asMap().entries.map((cellEntry) {
+                  int colIndex = cellEntry.key;
+                  String cell = cellEntry.value;
+                  bool isCompletedCell = _isCellCompleted(rowIndex, colIndex);
+                  bool isSelected = rowIndex == _selectedRow && colIndex == _selectedCol;
+                  bool isHighlighted = highlightedCells[rowIndex][colIndex];
 
-              if (cell == '-') {
-                return Container(
-                  width: _cellSize,
-                  height: _cellSize,
-                  margin: EdgeInsets.all(1),
-                );
-              } else {
-                return GestureDetector(
-                  onTap: () {
-                    _onCellTap(rowIndex, colIndex);
-                  },
-                  child: widget.style.cellBuilder != null
-                      ? widget.style.cellBuilder!(
-                          context,
-                          cell,
-                          isSelected,
-                          isHighlighted,
-                          isCompletedCell,
-                        )
-                      : Container(
-                          width: _cellSize,
-                          height: _cellSize,
-                          alignment: Alignment.center,
-                          margin: EdgeInsets.all(1),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black),
-                            color: isCompletedCell
-                                ? widget.style.wordCompleteColor
-                                : isSelected
-                                    ? widget.style.currentCellColor
-                                    : isHighlighted
-                                        ? widget.style.wordHighlightColor
-                                        : Colors.white,
-                          ),
-                          child: Text(
-                            cell.toUpperCase(),
-                            style: widget.style.cellTextStyle,
-                          ),
-                        ),
-                );
-              }
+                  if (cell == '-') {
+                    return Container(
+                      width: 30,
+                      height: 30,
+                      margin: EdgeInsets.all(1),
+                    );
+                  } else {
+                    return GestureDetector(
+                      onTap: () {
+                        _onCellTap(rowIndex, colIndex);
+                      },
+                      child: widget.style.cellBuilder != null
+                          ? widget.style.cellBuilder!(
+                              context,
+                              cell,
+                              isSelected,
+                              isHighlighted,
+                              isCompletedCell,
+                            )
+                          : Container(
+                              width: 30,
+                              height: 30,
+                              alignment: Alignment.center,
+                              margin: EdgeInsets.all(1),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.black),
+                                color: isCompletedCell
+                                    ? widget.style.wordCompleteColor
+                                    : isSelected
+                                        ? widget.style.currentCellColor
+                                        : isHighlighted
+                                            ? widget.style.wordHighlightColor
+                                            : Colors.white,
+                              ),
+                              child: Text(
+                                cell.toUpperCase(),
+                                style: widget.style.cellTextStyle,
+                              ),
+                            ),
+                    );
+                  }
+                }).toList(),
+              );
             }).toList(),
-          );
-        }).toList(),
+          ),
+        ),
       ),
     );
   }
@@ -649,27 +636,36 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Expanded(
-                  child: _buildGrid(),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height,
                 ),
-                Offstage(
-                  child: TextField(
-                    focusNode: _focusNode,
-                    controller: _inputController,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      constraints: BoxConstraints(),
+                      child: _buildGrid(),
                     ),
-                    autofocus: true,
-                    showCursor: false,
-                    maxLength: 1,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
-                    ],
-                  ),
+                    Offstage(
+                      child: TextField(
+                        focusNode: _focusNode,
+                        controller: _inputController,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                        ),
+                        autofocus: true,
+                        showCursor: false,
+                        maxLength: 1,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           if (_highlightedWordDescription.isNotEmpty)
