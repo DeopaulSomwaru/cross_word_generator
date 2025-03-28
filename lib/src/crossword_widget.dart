@@ -58,10 +58,12 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
 
   void _generateLayout() {
     CrosswordGenerator generator = CrosswordGenerator();
-    Map<String, dynamic> layout = generator.generateLayout(ensureDynamic(widget.words), false);
+    Map<String, dynamic> layout =
+        generator.generateLayout(ensureDynamic(widget.words), false);
 
     setState(() {
-      _table = List<List<String>>.from(layout['table'].map((row) => List<String>.from(row.map((cell) => cell == '-' ? '-' : ''))));
+      _table = List<List<String>>.from(layout['table'].map((row) =>
+          List<String>.from(row.map((cell) => cell == '-' ? '-' : ''))));
       _words = layout['result'];
       _selectedRow = -1;
       _selectedCol = -1;
@@ -112,7 +114,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         _isHorizontal = hasHorizontal || !hasVertical;
       }
 
-      _highlightedWordDescription = _getWordDescription(row, col, _isHorizontal);
+      _highlightedWordDescription =
+          _getWordDescription(row, col, _isHorizontal);
 
       // Ensure focus is set to the input field
       FocusScope.of(context).requestFocus(_focusNode);
@@ -130,17 +133,25 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
           if (word['orientation'] == 'across') {
             int startY = word['starty'] - 1;
             int startX = word['startx'] - 1;
-            if (startY == _selectedRow && startX <= _selectedCol && startX + word['answer'].length > _selectedCol) {
-              _table[_selectedRow][_selectedCol] = word['answer'][_selectedCol - startX].toUpperCase();
-              _revealedCells.add('$_selectedRow,$_selectedCol'); // Mark as revealed
+            if (startY == _selectedRow &&
+                startX <= _selectedCol &&
+                startX + word['answer'].length > _selectedCol) {
+              _table[_selectedRow][_selectedCol] =
+                  word['answer'][_selectedCol - startX].toUpperCase();
+              _revealedCells
+                  .add('$_selectedRow,$_selectedCol'); // Mark as revealed
               break;
             }
           } else if (word['orientation'] == 'down') {
             int startY = word['starty'] - 1;
             int startX = word['startx'] - 1;
-            if (startX == _selectedCol && startY <= _selectedRow && startY + word['answer'].length > _selectedRow) {
-              _table[_selectedRow][_selectedCol] = word['answer'][_selectedRow - startY].toUpperCase();
-              _revealedCells.add('$_selectedRow,$_selectedCol'); // Mark as revealed
+            if (startX == _selectedCol &&
+                startY <= _selectedRow &&
+                startY + word['answer'].length > _selectedRow) {
+              _table[_selectedRow][_selectedCol] =
+                  word['answer'][_selectedRow - startY].toUpperCase();
+              _revealedCells
+                  .add('$_selectedRow,$_selectedCol'); // Mark as revealed
               break;
             }
           }
@@ -160,14 +171,16 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
 
     if (_isHorizontal) {
       for (int col = _selectedCol + 1; col <= boundaries['endCol']!; col++) {
-        if (!_isCellCompleted(_selectedRow, col) && _table[_selectedRow][col] != '-') {
+        if (!_isCellCompleted(_selectedRow, col) &&
+            _table[_selectedRow][col] != '-') {
           _selectedCol = col;
           return;
         }
       }
     } else {
       for (int row = _selectedRow + 1; row <= boundaries['endRow']!; row++) {
-        if (!_isCellCompleted(row, _selectedCol) && _table[row][_selectedCol] != '-') {
+        if (!_isCellCompleted(row, _selectedCol) &&
+            _table[row][_selectedCol] != '-') {
           _selectedRow = row;
           return;
         }
@@ -183,13 +196,17 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       if (word['orientation'] == 'across' && isHorizontal) {
         int startY = word['starty'] - 1;
         int startX = word['startx'] - 1;
-        if (startY == row && startX <= col && startX + word['answer'].length > col) {
+        if (startY == row &&
+            startX <= col &&
+            startX + word['answer'].length > col) {
           return word['description'];
         }
       } else if (word['orientation'] == 'down' && !isHorizontal) {
         int startY = word['starty'] - 1;
         int startX = word['startx'] - 1;
-        if (startX == col && startY <= row && startY + word['answer'].length > row) {
+        if (startX == col &&
+            startY <= row &&
+            startY + word['answer'].length > row) {
           return word['description'];
         }
       }
@@ -198,7 +215,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
   }
 
   List<List<bool>> _getHighlightedCells() {
-    List<List<bool>> highlightedCells = List.generate(_table.length, (_) => List.filled(_table[0].length, false));
+    List<List<bool>> highlightedCells = List.generate(
+        _table.length, (_) => List.filled(_table[0].length, false));
 
     if (_selectedRow != -1 && _selectedCol != -1) {
       if (_isHorizontal) {
@@ -207,7 +225,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
           colStart--;
         }
         int colEnd = _selectedCol;
-        while (colEnd < _table[0].length - 1 && _table[_selectedRow][colEnd + 1] != '-') {
+        while (colEnd < _table[0].length - 1 &&
+            _table[_selectedRow][colEnd + 1] != '-') {
           colEnd++;
         }
         for (int col = colStart; col <= colEnd; col++) {
@@ -219,7 +238,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
           rowStart--;
         }
         int rowEnd = _selectedRow;
-        while (rowEnd < _table.length - 1 && _table[rowEnd + 1][_selectedCol] != '-') {
+        while (rowEnd < _table.length - 1 &&
+            _table[rowEnd + 1][_selectedCol] != '-') {
           rowEnd++;
         }
         for (int row = rowStart; row <= rowEnd; row++) {
@@ -253,7 +273,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
                   int colIndex = cellEntry.key;
                   String cell = cellEntry.value;
                   bool isCompletedCell = _isCellCompleted(rowIndex, colIndex);
-                  bool isSelected = rowIndex == _selectedRow && colIndex == _selectedCol;
+                  bool isSelected =
+                      rowIndex == _selectedRow && colIndex == _selectedCol;
                   bool isHighlighted = highlightedCells[rowIndex][colIndex];
 
                   if (cell == '-') {
@@ -382,7 +403,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
     if (_words.isEmpty) return;
 
     if (_currentWordIndex == -1) {
-      _currentWordIndex = _words.indexWhere((word) => !word.containsKey('completed') || !word['completed']);
+      _currentWordIndex = _words.indexWhere(
+          (word) => !word.containsKey('completed') || !word['completed']);
     } else {
       _currentWordIndex--;
     }
@@ -419,7 +441,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
     if (_words.isEmpty) return;
 
     if (_currentWordIndex == -1) {
-      _currentWordIndex = _words.indexWhere((word) => !word.containsKey('completed') || !word['completed']);
+      _currentWordIndex = _words.indexWhere(
+          (word) => !word.containsKey('completed') || !word['completed']);
     } else {
       _currentWordIndex++;
     }
@@ -453,10 +476,13 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
   }
 
   void _handleInput() {
-    if (_selectedRow != -1 && _selectedCol != -1 && _inputController.text.isNotEmpty) {
+    if (_selectedRow != -1 &&
+        _selectedCol != -1 &&
+        _inputController.text.isNotEmpty) {
       setState(() {
         String inputLetter = _inputController.text[0].toLowerCase();
-        if (!_isCellCompleted(_selectedRow, _selectedCol) && _table[_selectedRow][_selectedCol].toLowerCase() != inputLetter) {
+        if (!_isCellCompleted(_selectedRow, _selectedCol) &&
+            _table[_selectedRow][_selectedCol].toLowerCase() != inputLetter) {
           _table[_selectedRow][_selectedCol] = inputLetter;
         }
         _inputController.clear();
@@ -464,15 +490,21 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         Map<String, int> boundaries = _getCurrentWordBoundaries();
 
         if (_isHorizontal) {
-          for (int col = _selectedCol + 1; col <= boundaries['endCol']!; col++) {
-            if (!_isCellCompleted(_selectedRow, col) && _table[_selectedRow][col] != '-') {
+          for (int col = _selectedCol + 1;
+              col <= boundaries['endCol']!;
+              col++) {
+            if (!_isCellCompleted(_selectedRow, col) &&
+                _table[_selectedRow][col] != '-') {
               _selectedCol = col;
               break;
             }
           }
         } else {
-          for (int row = _selectedRow + 1; row <= boundaries['endRow']!; row++) {
-            if (!_isCellCompleted(row, _selectedCol) && _table[row][_selectedCol] != '-') {
+          for (int row = _selectedRow + 1;
+              row <= boundaries['endRow']!;
+              row++) {
+            if (!_isCellCompleted(row, _selectedCol) &&
+                _table[row][_selectedCol] != '-') {
               _selectedRow = row;
               break;
             }
@@ -493,11 +525,15 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         int startY = word['starty'] - 1;
         int startX = word['startx'] - 1;
         if (isHorizontal) {
-          if (startY == row && startX <= col && startX + word['answer'].length > col) {
+          if (startY == row &&
+              startX <= col &&
+              startX + word['answer'].length > col) {
             return word['answer'].length;
           }
         } else {
-          if (startX == col && startY <= row && startY + word['answer'].length > row) {
+          if (startX == col &&
+              startY <= row &&
+              startY + word['answer'].length > row) {
             return word['answer'].length;
           }
         }
@@ -512,18 +548,24 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         int startY = word['starty'] - 1;
         int startX = word['startx'] - 1;
         if (_isHorizontal) {
-          if (startY == _selectedRow && startX <= _selectedCol && startX + word['answer'].length > _selectedCol) {
+          if (startY == _selectedRow &&
+              startX <= _selectedCol &&
+              startX + word['answer'].length > _selectedCol) {
             for (int k = 0; k < word['answer'].length; k++) {
-              if (_table[startY][startX + k].toLowerCase() != word['answer'][k]) {
+              if (_table[startY][startX + k].toLowerCase() !=
+                  word['answer'][k]) {
                 return false;
               }
             }
             return true;
           }
         } else {
-          if (startX == _selectedCol && startY <= _selectedRow && startY + word['answer'].length > _selectedRow) {
+          if (startX == _selectedCol &&
+              startY <= _selectedRow &&
+              startY + word['answer'].length > _selectedRow) {
             for (int k = 0; k < word['answer'].length; k++) {
-              if (_table[startY + k][startX].toLowerCase() != word['answer'][k]) {
+              if (_table[startY + k][startX].toLowerCase() !=
+                  word['answer'][k]) {
                 return false;
               }
             }
@@ -545,14 +587,16 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       while (startCol > 0 && _table[_selectedRow][startCol - 1] != '-') {
         startCol--;
       }
-      while (endCol < _table[0].length - 1 && _table[_selectedRow][endCol + 1] != '-') {
+      while (endCol < _table[0].length - 1 &&
+          _table[_selectedRow][endCol + 1] != '-') {
         endCol++;
       }
     } else {
       while (startRow > 0 && _table[startRow - 1][_selectedCol] != '-') {
         startRow--;
       }
-      while (endRow < _table.length - 1 && _table[endRow + 1][_selectedCol] != '-') {
+      while (endRow < _table.length - 1 &&
+          _table[endRow + 1][_selectedCol] != '-') {
         endRow++;
       }
     }
@@ -566,23 +610,32 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
   }
 
   void _handleKeyEvent(RawKeyEvent event) {
-    if (event is RawKeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+    if (event is RawKeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace) {
       setState(() {
-        if (_selectedRow != -1 && _selectedCol != -1 && !_isCellCompleted(_selectedRow, _selectedCol)) {
+        if (_selectedRow != -1 &&
+            _selectedCol != -1 &&
+            !_isCellCompleted(_selectedRow, _selectedCol)) {
           _table[_selectedRow][_selectedCol] = '';
 
           Map<String, int> boundaries = _getCurrentWordBoundaries();
 
           if (_isHorizontal) {
-            for (int col = _selectedCol - 1; col >= boundaries['startCol']!; col--) {
-              if (!_isCellCompleted(_selectedRow, col) && _table[_selectedRow][col] != '-') {
+            for (int col = _selectedCol - 1;
+                col >= boundaries['startCol']!;
+                col--) {
+              if (!_isCellCompleted(_selectedRow, col) &&
+                  _table[_selectedRow][col] != '-') {
                 _selectedCol = col;
                 return;
               }
             }
           } else {
-            for (int row = _selectedRow - 1; row >= boundaries['startRow']!; row--) {
-              if (!_isCellCompleted(row, _selectedCol) && _table[row][_selectedCol] != '-') {
+            for (int row = _selectedRow - 1;
+                row >= boundaries['startRow']!;
+                row--) {
+              if (!_isCellCompleted(row, _selectedCol) &&
+                  _table[row][_selectedCol] != '-') {
                 _selectedRow = row;
                 return;
               }
@@ -659,7 +712,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
                         showCursor: false,
                         maxLength: 1,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z]')),
                         ],
                       ),
                     ),
@@ -690,7 +744,9 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
                         children: [
                           Text(
                             'Description:',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
                           Text(
                             _highlightedWordDescription,
