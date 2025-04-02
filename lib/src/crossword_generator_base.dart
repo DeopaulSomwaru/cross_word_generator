@@ -1,23 +1,41 @@
 import 'dart:math';
 
 class CrosswordGenerator {
+  // Add dependency injection
+  final CrosswordConfig config;
+
+  CrosswordGenerator({this.config = const CrosswordConfig()});
+
+  // Convert to pure mathematical operation
+  static double weightedAverage(List<double> weights, List<double> values) {
+    assert(weights.length == values.length, "Weights/values mismatch");
+    final sum = List.generate(weights.length, (i) => weights[i] * values[i])
+        .reduce((a, b) => a + b);
+    return sum.clamp(0, 1); // Ensures valid range
+  }
+
+  // // Improved placement logic
+  // void attemptPlacement({/* ... */}) {
+  //   // Implement spatial partitioning checks
+  // }
+
   // Math functions
   int distance(int x1, int y1, int x2, int y2) {
     return (x1 - x2).abs() + (y1 - y2).abs();
   }
 
-  double weightedAverage(List<double> weights, List<double> values) {
-    double temp = 0;
-    for (int k = 0; k < weights.length; k++) {
-      temp += weights[k] * values[k];
-    }
+  // double weightedAverage(List<double> weights, List<double> values) {
+  //   double temp = 0;
+  //   for (int k = 0; k < weights.length; k++) {
+  //     temp += weights[k] * values[k];
+  //   }
 
-    if (temp < 0 || temp > 1) {
-      print("Error: $values");
-    }
+  //   if (temp < 0 || temp > 1) {
+  //     print("Error: $values");
+  //   }
 
-    return temp;
-  }
+  //   return temp;
+  // }
 
   // Component scores
   // 1. Number of connections
@@ -27,7 +45,8 @@ class CrosswordGenerator {
 
   // 2. Distance from center
   double computeScore2(int rows, int cols, int i, int j) {
-    return 1 - (distance(rows ~/ 2, cols ~/ 2, i, j) / ((rows / 2) + (cols / 2)));
+    return 1 -
+        (distance(rows ~/ 2, cols ~/ 2, i, j) / ((rows / 2) + (cols / 2)));
   }
 
   // 3. Vertical versus horizontal orientation
@@ -47,8 +66,10 @@ class CrosswordGenerator {
   }
 
   // Word functions
-  void addWord(List<dynamic> best, List<Map<String, dynamic>> words, List<List<String>> table) {
-    double bestScore = best[0].runtimeType == String ? double.parse(best[0]) : best[0];
+  void addWord(List<dynamic> best, List<Map<String, dynamic>> words,
+      List<List<String>> table) {
+    double bestScore =
+        best[0].runtimeType == String ? double.parse(best[0]) : best[0];
     String word = best[1];
     int index = best[2].runtimeType == String ? int.parse(best[2]) : best[2];
     int bestI = best[3].runtimeType == String ? int.parse(best[3]) : best[3];
@@ -109,20 +130,34 @@ class CrosswordGenerator {
 
   // Table functions
   List<List<String>> initTable(int rows, int cols) {
-    List<List<String>> table = List.generate(rows, (_) => List.filled(cols, '-'));
+    List<List<String>> table =
+        List.generate(rows, (_) => List.filled(cols, '-'));
     return table;
   }
 
-  bool isConflict(List<List<String>> table, bool isVertical, String character, int i, int j) {
+  bool isConflict(List<List<String>> table, bool isVertical, String character,
+      int i, int j) {
     if (character != table[i][j] && table[i][j] != "-") {
       return true;
-    } else if (table[i][j] == "-" && !isVertical && (i + 1) < table.length && table[i + 1][j] != "-") {
+    } else if (table[i][j] == "-" &&
+        !isVertical &&
+        (i + 1) < table.length &&
+        table[i + 1][j] != "-") {
       return true;
-    } else if (table[i][j] == "-" && !isVertical && (i - 1) >= 0 && table[i - 1][j] != "-") {
+    } else if (table[i][j] == "-" &&
+        !isVertical &&
+        (i - 1) >= 0 &&
+        table[i - 1][j] != "-") {
       return true;
-    } else if (table[i][j] == "-" && isVertical && (j + 1) < table[i].length && table[i][j + 1] != "-") {
+    } else if (table[i][j] == "-" &&
+        isVertical &&
+        (j + 1) < table[i].length &&
+        table[i][j + 1] != "-") {
       return true;
-    } else if (table[i][j] == "-" && isVertical && (j - 1) >= 0 && table[i][j - 1] != "-") {
+    } else if (table[i][j] == "-" &&
+        isVertical &&
+        (j - 1) >= 0 &&
+        table[i][j - 1] != "-") {
       return true;
     } else {
       return false;
@@ -130,7 +165,14 @@ class CrosswordGenerator {
   }
 
   List<dynamic> attemptToInsert(
-      int rows, int cols, List<List<String>> table, List<double> weights, int verticalCount, int totalCount, String word, int index) {
+      int rows,
+      int cols,
+      List<List<String>> table,
+      List<double> weights,
+      int verticalCount,
+      int totalCount,
+      String word,
+      int index) {
     int bestI = 0;
     int bestJ = 0;
     int bestO = 0;
@@ -162,16 +204,19 @@ class CrosswordGenerator {
 
         if ((j - 1) >= 0 && table[i][j - 1] != "-") {
           isValid = false;
-        } else if ((j + word.length) < table[i].length && table[i][j + word.length] != "-") {
+        } else if ((j + word.length) < table[i].length &&
+            table[i][j + word.length] != "-") {
           isValid = false;
         }
 
         if (isValid) {
           double tempScore1 = computeScore1(connections, word);
-          double tempScore2 = computeScore2(rows, cols, i, j + (word.length ~/ 2));
+          double tempScore2 =
+              computeScore2(rows, cols, i, j + (word.length ~/ 2));
           double tempScore3 = computeScore3(1, 0, verticalCount, totalCount);
           double tempScore4 = computeScore4(rows, word);
-          double tempScore = weightedAverage(weights, [tempScore1, tempScore2, tempScore3, tempScore4]);
+          double tempScore = weightedAverage(
+              weights, [tempScore1, tempScore2, tempScore3, tempScore4]);
 
           if (tempScore > bestScore) {
             bestScore = tempScore;
@@ -209,16 +254,19 @@ class CrosswordGenerator {
 
         if ((i - 1) >= 0 && table[i - 1][j] != "-") {
           isValid = false;
-        } else if ((i + word.length) < table.length && table[i + word.length][j] != "-") {
+        } else if ((i + word.length) < table.length &&
+            table[i + word.length][j] != "-") {
           isValid = false;
         }
 
         if (isValid) {
           double tempScore1 = computeScore1(connections, word);
-          double tempScore2 = computeScore2(rows, cols, i + (word.length ~/ 2), j);
+          double tempScore2 =
+              computeScore2(rows, cols, i + (word.length ~/ 2), j);
           double tempScore3 = computeScore3(0, 1, verticalCount, totalCount);
           double tempScore4 = computeScore4(rows, word);
-          double tempScore = weightedAverage(weights, [tempScore1, tempScore2, tempScore3, tempScore4]);
+          double tempScore = weightedAverage(
+              weights, [tempScore1, tempScore2, tempScore3, tempScore4]);
 
           if (tempScore > bestScore) {
             bestScore = tempScore;
@@ -268,16 +316,25 @@ class CrosswordGenerator {
     }
   }
 
-  Map<String, dynamic> generateTable(List<List<String>> table, int rows, int cols, List<Map<String, dynamic>> words, List<double> weights) {
+  Map<String, dynamic> generateTable(List<List<String>> table, int rows,
+      int cols, List<Map<String, dynamic>> words, List<double> weights) {
     int verticalCount = 0;
     int totalCount = 0;
 
     for (int outerIndex = 0; outerIndex < words.length; outerIndex++) {
       List<dynamic> best = [-1];
       for (int innerIndex = 0; innerIndex < words.length; innerIndex++) {
-        if (words[innerIndex].containsKey('answer') && !words[innerIndex].containsKey('startx')) {
-          List<dynamic> temp =
-              attemptToInsert(rows, cols, table, weights, verticalCount, totalCount, words[innerIndex]['answer'], innerIndex);
+        if (words[innerIndex].containsKey('answer') &&
+            !words[innerIndex].containsKey('startx')) {
+          List<dynamic> temp = attemptToInsert(
+              rows,
+              cols,
+              table,
+              weights,
+              verticalCount,
+              totalCount,
+              words[innerIndex]['answer'],
+              innerIndex);
           if (temp[0] > best[0]) {
             best = temp;
           }
@@ -287,9 +344,17 @@ class CrosswordGenerator {
       if (best[0] == -1) {
         // Attempt to insert the word without intersections
         for (int innerIndex = 0; innerIndex < words.length; innerIndex++) {
-          if (words[innerIndex].containsKey('answer') && !words[innerIndex].containsKey('startx')) {
-            List<dynamic> temp =
-                attemptToInsert(rows, cols, table, weights, verticalCount, totalCount, words[innerIndex]['answer'], innerIndex);
+          if (words[innerIndex].containsKey('answer') &&
+              !words[innerIndex].containsKey('startx')) {
+            List<dynamic> temp = attemptToInsert(
+                rows,
+                cols,
+                table,
+                weights,
+                verticalCount,
+                totalCount,
+                words[innerIndex]['answer'],
+                innerIndex);
             if (temp[0] > best[0]) {
               best = temp;
             }
@@ -328,8 +393,14 @@ class CrosswordGenerator {
     for (int wordIndex = 0; wordIndex < words.length; wordIndex++) {
       var word = words[wordIndex];
       if (word['orientation'] == "across") {
-        int i = (word['starty'].runtimeType == String ? int.parse(word['starty']) : word['starty']) - 1;
-        int j = (word['startx'].runtimeType == String ? int.parse(word['startx']) : word['startx']) - 1;
+        int i = (word['starty'].runtimeType == String
+                ? int.parse(word['starty'])
+                : word['starty']) -
+            1;
+        int j = (word['startx'].runtimeType == String
+                ? int.parse(word['startx'])
+                : word['startx']) -
+            1;
         for (int k = 0; k < word['answer'].length; k++) {
           if (newTable[i][j + k] == "-") {
             newTable[i][j + k] = "O";
@@ -338,8 +409,14 @@ class CrosswordGenerator {
           }
         }
       } else if (word['orientation'] == "down") {
-        int i = (word['starty'].runtimeType == String ? int.parse(word['starty']) : word['starty']) - 1;
-        int j = (word['startx'].runtimeType == String ? int.parse(word['startx']) : word['startx']) - 1;
+        int i = (word['starty'].runtimeType == String
+                ? int.parse(word['starty'])
+                : word['starty']) -
+            1;
+        int j = (word['startx'].runtimeType == String
+                ? int.parse(word['startx'])
+                : word['startx']) -
+            1;
         for (int k = 0; k < word['answer'].length; k++) {
           if (newTable[i + k][j] == "-") {
             newTable[i + k][j] = "O";
@@ -355,8 +432,14 @@ class CrosswordGenerator {
       var word = words[wordIndex];
       bool isIsolated = true;
       if (word['orientation'] == "across") {
-        int i = (word['starty'].runtimeType == String ? int.parse(word['starty']) : word['starty']) - 1;
-        int j = (word['startx'].runtimeType == String ? int.parse(word['startx']) : word['startx']) - 1;
+        int i = (word['starty'].runtimeType == String
+                ? int.parse(word['starty'])
+                : word['starty']) -
+            1;
+        int j = (word['startx'].runtimeType == String
+                ? int.parse(word['startx'])
+                : word['startx']) -
+            1;
         for (int k = 0; k < word['answer'].length; k++) {
           if (newTable[i][j + k] == "X") {
             isIsolated = false;
@@ -364,8 +447,14 @@ class CrosswordGenerator {
           }
         }
       } else if (word['orientation'] == "down") {
-        int i = (word['starty'].runtimeType == String ? int.parse(word['starty']) : word['starty']) - 1;
-        int j = (word['startx'].runtimeType == String ? int.parse(word['startx']) : word['startx']) - 1;
+        int i = (word['starty'].runtimeType == String
+                ? int.parse(word['starty'])
+                : word['starty']) -
+            1;
+        int j = (word['startx'].runtimeType == String
+                ? int.parse(word['startx'])
+                : word['startx']) -
+            1;
         for (int k = 0; k < word['answer'].length; k++) {
           if (newTable[i + k][j] == "X") {
             isIsolated = false;
@@ -386,14 +475,26 @@ class CrosswordGenerator {
     for (int wordIndex = 0; wordIndex < words.length; wordIndex++) {
       var word = words[wordIndex];
       if (word['orientation'] == "across") {
-        int i = (word['starty'].runtimeType == String ? int.parse(word['starty']) : word['starty']) - 1;
-        int j = (word['startx'].runtimeType == String ? int.parse(word['startx']) : word['startx']) - 1;
+        int i = (word['starty'].runtimeType == String
+                ? int.parse(word['starty'])
+                : word['starty']) -
+            1;
+        int j = (word['startx'].runtimeType == String
+                ? int.parse(word['startx'])
+                : word['startx']) -
+            1;
         for (int k = 0; k < word['answer'].length; k++) {
           newTable[i][j + k] = word['answer'][k];
         }
       } else if (word['orientation'] == "down") {
-        int i = (word['starty'].runtimeType == String ? int.parse(word['starty']) : word['starty']) - 1;
-        int j = (word['startx'].runtimeType == String ? int.parse(word['startx']) : word['startx']) - 1;
+        int i = (word['starty'].runtimeType == String
+                ? int.parse(word['starty'])
+                : word['starty']) -
+            1;
+        int j = (word['startx'].runtimeType == String
+                ? int.parse(word['startx'])
+                : word['startx']) -
+            1;
         for (int k = 0; k < word['answer'].length; k++) {
           newTable[i + k][j] = word['answer'][k];
         }
@@ -435,7 +536,8 @@ class CrosswordGenerator {
       }
     }
 
-    List<List<String>> trimmedTable = initTable(bottomMost - topMost + 1, rightMost - leftMost + 1);
+    List<List<String>> trimmedTable =
+        initTable(bottomMost - topMost + 1, rightMost - leftMost + 1);
     for (int i = topMost; i < bottomMost + 1; i++) {
       for (int j = leftMost; j < rightMost + 1; j++) {
         trimmedTable[i - topMost][j - leftMost] = table[i][j];
@@ -450,7 +552,12 @@ class CrosswordGenerator {
       }
     }
 
-    return {"table": trimmedTable, "result": words, "rows": max(bottomMost - topMost + 1, 0), "cols": max(rightMost - leftMost + 1, 0)};
+    return {
+      "table": trimmedTable,
+      "result": words,
+      "rows": max(bottomMost - topMost + 1, 0),
+      "cols": max(rightMost - leftMost + 1, 0)
+    };
   }
 
   String tableToString(List<List<String>> table, String delim) {
@@ -470,20 +577,33 @@ class CrosswordGenerator {
     }
   }
 
-  Map<String, dynamic> generateSimpleTable(List<Map<String, dynamic>> words, bool isRemovingIsolatedWords) {
+  Map<String, dynamic> generateSimpleTable(
+      List<Map<String, dynamic>> words, bool isRemovingIsolatedWords) {
     int rows = computeDimension(words, 3);
     int cols = rows;
     List<List<String>> blankTable = initTable(rows, cols);
-    Map<String, dynamic> table = generateTable(blankTable, rows, cols, words, [0.7, 0.15, 0.1, 0.05]);
-    Map<String, dynamic> newTable = isRemovingIsolatedWords ? removeIsolatedWords(table) : table;
+    Map<String, dynamic> table =
+        generateTable(blankTable, rows, cols, words, [0.7, 0.15, 0.1, 0.05]);
+    Map<String, dynamic> newTable =
+        isRemovingIsolatedWords ? removeIsolatedWords(table) : table;
     Map<String, dynamic> finalTable = trimTable(newTable);
     assignPositions(finalTable['result']);
     return finalTable;
   }
 
-  Map<String, dynamic> generateLayout(List<Map<String, dynamic>> wordsJson, bool isRemovingIsolatedWords) {
-    Map<String, dynamic> layout = generateSimpleTable(wordsJson, isRemovingIsolatedWords);
+  Map<String, dynamic> generateLayout(
+      List<Map<String, dynamic>> wordsJson, bool isRemovingIsolatedWords) {
+    Map<String, dynamic> layout =
+        generateSimpleTable(wordsJson, isRemovingIsolatedWords);
     layout['table_string'] = tableToString(layout['table'], "<br>");
     return layout;
   }
+}
+
+class CrosswordConfig {
+  final List<double> weights;
+  final int sizeFactor;
+
+  const CrosswordConfig(
+      {this.weights = const [0.7, 0.15, 0.1, 0.05], this.sizeFactor = 3});
 }

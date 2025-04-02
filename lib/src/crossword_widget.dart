@@ -1,41 +1,306 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:crossword_generator/crossword_generator.dart';
+// ====================== DATA MODELS ======================
+enum Orientation { horizontal, vertical }
 
+class CrosswordPosition {
+  final int row;
+  final int col;
+
+  const CrosswordPosition(this.row, this.col);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CrosswordPosition &&
+          runtimeType == other.runtimeType &&
+          row == other.row &&
+          col == other.col;
+
+  @override
+  int get hashCode => row.hashCode ^ col.hashCode;
+}
+
+class CrosswordWord {
+  final String answer;
+  final String clue;
+  final Orientation orientation;
+  final CrosswordPosition start;
+  bool isCompleted;
+
+  CrosswordWord({
+    required this.answer,
+    required this.clue,
+    required this.orientation,
+    required this.start,
+    this.isCompleted = false,
+  });
+}
+
+class CrosswordCell {
+  final CrosswordPosition position;
+  final String correctValue;
+  String userValue;
+  bool isSelected;
+  bool isHighlighted;
+  bool isRevealed;
+
+  CrosswordCell({
+    required this.position,
+    required this.correctValue,
+    this.userValue = '',
+    this.isSelected = false,
+    this.isHighlighted = false,
+    this.isRevealed = false,
+  });
+
+  String get displayValue =>
+      isRevealed ? correctValue.toUpperCase() : userValue.toUpperCase();
+  bool get isEmpty => correctValue.isEmpty;
+  bool get isFilled => userValue.isNotEmpty || isRevealed;
+  bool get isCorrect => userValue.toLowerCase() == correctValue.toLowerCase();
+}
+
+// ====================== PUZZLE LOGIC ======================
+class CrosswordPuzzle with ChangeNotifier {
+  final List<CrosswordWord> words;
+  late List<List<CrosswordCell>> grid;
+  CrosswordPosition? _selectedPosition;
+  Orientation _currentOrientation = Orientation.horizontal;
+  final Set<CrosswordPosition> _revealedCells = {};
+
+  CrosswordPuzzle({required this.words}) {
+    _generateGrid();
+  }
+
+  void _generateGrid() {
+    // Initial grid generation logic (simplified)
+    final size = _calculateGridSize();
+    grid = List.generate(
+        size,
+        (row) => List.generate(
+            size,
+            (col) => CrosswordCell(
+                  position: CrosswordPosition(row, col),
+                  correctValue: '',
+                )));
+
+    // Place words in grid (implementation details would go here)
+    for (final word in words) {
+      _placeWordInGrid(word);
+    }
+  }
+
+  void _placeWordInGrid(CrosswordWord word) {
+    final letters = word.answer.split('');
+    final start = word.start;
+
+    for (var i = 0; i < letters.length; i++) {
+      final pos = word.orientation == Orientation.horizontal
+          ? CrosswordPosition(start.row, start.col + i)
+          : CrosswordPosition(start.row + i, start.col);
+
+      if (_isValidPosition(pos)) {
+        grid[pos.row][pos.col] = CrosswordCell(
+          position: pos,
+          correctValue: letters[i],
+        );
+      }
+    }
+  }
+
+  bool _isValidPosition(CrosswordPosition pos) =>
+      pos.row >= 0 &&
+      pos.row < grid.length &&
+      pos.col >= 0 &&
+      pos.col < grid[0].length;
+
+  int _calculateGridSize() =>
+      words.fold(0,
+          (max, word) => word.answer.length > max ? word.answer.length : max) *
+      2;
+
+  void selectCell(CrosswordPosition position) {
+    _clearSelection();
+    _selectedPosition = position;
+    _updateOrientation();
+    _highlightWord();
+    notifyListeners();
+  }
+
+  void _clearSelection() {
+    for (final row in grid) {
+      for (final cell in row) {
+        cell.isSelected = false;
+        cell.isHighlighted = false;
+      }
+    }
+  }
+
+  void _updateOrientation() {
+    final currentCell = currentSelectedCell;
+    if (currentCell == null) return;
+
+    final horizontalWord =
+        _getWordAt(currentCell.position, Orientation.horizontal);
+    final verticalWord = _getWordAt(currentCell.position, Orientation.vertical);
+
+    if (horizontalWord != null && verticalWord != null) {
+      _currentOrientation = _currentOrientation == Orientation.horizontal
+          ? Orientation.vertical
+          : Orientation.horizontal;
+    } else if (horizontalWord != null) {
+      _currentOrientation = Orientation.horizontal;
+    } else if (verticalWord != null) {
+      _currentOrientation = Orientation.vertical;
+    }
+  }
+
+  void _highlightWord() {
+    final word = currentWord;
+    if (word == null) return;
+
+    final positions = _getWordPositions(word);
+    for (final pos in positions) {
+      grid[pos.row][pos.col].isHighlighted = true;
+    }
+  }
+
+  CrosswordWord? get currentWord {
+    final pos = _selectedPosition;
+    if (pos == null) return null;
+    return _getWordAt(pos, _currentOrientation);
+  }
+
+  CrosswordWord? _getWordAt(CrosswordPosition pos, Orientation orientation) {
+    for (final word in words) {
+      if (word.orientation != orientation) continue;
+
+      final start = word.start;
+      final end = orientation == Orientation.horizontal
+          ? CrosswordPosition(start.row, start.col + word.answer.length - 1)
+          : CrosswordPosition(start.row + word.answer.length - 1, start.col);
+
+      if (orientation == Orientation.horizontal) {
+        if (pos.row == start.row &&
+            pos.col >= start.col &&
+            pos.col <= end.col) {
+          return word;
+        }
+      } else {
+        if (pos.col == start.col &&
+            pos.row >= start.row &&
+            pos.row <= end.row) {
+          return word;
+        }
+      }
+    }
+    return null;
+  }
+
+  List<CrosswordPosition> _getWordPositions(CrosswordWord word) {
+    final positions = <CrosswordPosition>[];
+    final start = word.start;
+
+    for (var i = 0; i < word.answer.length; i++) {
+      final pos = word.orientation == Orientation.horizontal
+          ? CrosswordPosition(start.row, start.col + i)
+          : CrosswordPosition(start.row + i, start.col);
+
+      if (_isValidPosition(pos)) {
+        positions.add(pos);
+      }
+    }
+    return positions;
+  }
+
+  void revealCurrentCell() {
+    final cell = currentSelectedCell;
+    if (cell != null && !cell.isRevealed) {
+      cell.isRevealed = true;
+      _revealedCells.add(cell.position);
+      _validateWordCompletion();
+      notifyListeners();
+    }
+  }
+
+  void _validateWordCompletion() {
+    for (final word in words) {
+      final positions = _getWordPositions(word);
+      final allRevealed =
+          positions.every((pos) => _revealedCells.contains(pos));
+      word.isCompleted = allRevealed ||
+          positions.every((pos) => grid[pos.row][pos.col].isCorrect);
+    }
+    notifyListeners();
+  }
+
+  CrosswordCell? get currentSelectedCell => _selectedPosition != null
+      ? grid[_selectedPosition!.row][_selectedPosition!.col]
+      : null;
+
+  void updateCellValue(String value) {
+    final cell = currentSelectedCell;
+    if (cell != null && !cell.isRevealed && value.isNotEmpty) {
+      cell.userValue = value[0];
+      _validateWordCompletion();
+      _moveToNextCell();
+      notifyListeners();
+    }
+  }
+
+  void _moveToNextCell() {
+    final word = currentWord;
+    if (word == null || _selectedPosition == null) return;
+
+    final positions = _getWordPositions(word);
+    final currentIndex = positions.indexWhere((p) => p == _selectedPosition!);
+
+    if (currentIndex != -1 && currentIndex < positions.length - 1) {
+      selectCell(positions[currentIndex + 1]);
+    }
+  }
+}
+
+// ====================== WIDGET IMPLEMENTATION ======================
 class CrosswordWidget extends StatefulWidget {
-  final List<Map<String, dynamic>> words;
+  final List<CrosswordWord> words;
   final CrosswordStyle style;
-  final Function(Function) onRevealCurrentCellLetter;
-  final VoidCallback? onCrosswordCompleted;
+  final VoidCallback? onComplete;
 
-  CrosswordWidget({
+  const CrosswordWidget({
+    Key? key,
     required this.words,
     this.style = const CrosswordStyle(),
-    required this.onRevealCurrentCellLetter,
-    this.onCrosswordCompleted,
-  });
+    this.onComplete,
+  }) : super(key: key);
 
   @override
   _CrosswordWidgetState createState() => _CrosswordWidgetState();
 }
 
 class _CrosswordWidgetState extends State<CrosswordWidget> {
-  List<List<String>> _table = [];
-  List<Map<String, dynamic>> _words = [];
-  int _selectedRow = -1;
-  int _selectedCol = -1;
-  bool _isHorizontal = true;
-  String _highlightedWordDescription = "";
-  Set<String> _revealedCells = {}; // New state variable
-
+  late CrosswordPuzzle _puzzle;
   final FocusNode _focusNode = FocusNode();
   final TextEditingController _inputController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _inputController.addListener(_handleInput);
+    _puzzle = CrosswordPuzzle(words: widget.words);
+    _puzzle.addListener(_onPuzzleUpdate);
+    _setupInputHandling();
+  }
+
+  void _setupInputHandling() {
+    _inputController.addListener(() {
+      if (_inputController.text.isNotEmpty) {
+        _puzzle.updateCellValue(_inputController.text);
+        _inputController.clear();
+      }
+    });
+
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         RawKeyboard.instance.addListener(_handleKeyEvent);
@@ -43,730 +308,217 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         RawKeyboard.instance.removeListener(_handleKeyEvent);
       }
     });
-    _generateLayout();
-    // Pass the reveal method to the parent
-    widget.onRevealCurrentCellLetter(revealCurrentCellLetter);
+  }
+
+  void _onPuzzleUpdate() {
+    if (_puzzle.words.every((word) => word.isCompleted)) {
+      widget.onComplete?.call();
+    }
+    setState(() {});
+  }
+
+  void _handleKeyEvent(RawKeyEvent event) {
+    if (event is RawKeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        _moveSelection(-1, 0);
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        _moveSelection(1, 0);
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        _moveSelection(0, -1);
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        _moveSelection(0, 1);
+      } else if (event.logicalKey == LogicalKeyboardKey.tab) {
+        _toggleOrientation();
+      }
+    }
+  }
+
+  void _moveSelection(int colDelta, int rowDelta) {
+    final current = _puzzle._selectedPosition;
+    if (current == null) return;
+
+    final newRow = (current.row + rowDelta).clamp(0, _puzzle.grid.length - 1);
+    final newCol =
+        (current.col + colDelta).clamp(0, _puzzle.grid[0].length - 1);
+    _puzzle.selectCell(CrosswordPosition(newRow, newCol));
+  }
+
+  void _toggleOrientation() {
+    final current = _puzzle._currentOrientation;
+    _puzzle._currentOrientation = current == Orientation.horizontal
+        ? Orientation.vertical
+        : Orientation.horizontal;
+    _puzzle._highlightWord();
+    _puzzle.notifyListeners();
   }
 
   @override
-  void dispose() {
-    _inputController.removeListener(_handleInput);
-    _inputController.dispose();
-    _focusNode.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return FocusableActionDetector(
+      focusNode: _focusNode,
+      autofocus: true,
+      shortcuts: _keyboardShortcuts,
+      actions: _keyboardActions,
+      child: Column(
+        children: [
+          _buildGrid(),
+          _buildDescription(),
+        ],
+      ),
+    );
   }
 
-  void _generateLayout() {
-    CrosswordGenerator generator = CrosswordGenerator();
-    Map<String, dynamic> layout =
-        generator.generateLayout(ensureDynamic(widget.words), false);
+  Map<LogicalKeySet, Intent> get _keyboardShortcuts => {
+        LogicalKeySet(LogicalKeyboardKey.arrowLeft):
+            const DirectionalFocusIntent(TraversalDirection.left),
+        LogicalKeySet(LogicalKeyboardKey.arrowRight):
+            const DirectionalFocusIntent(TraversalDirection.right),
+        LogicalKeySet(LogicalKeyboardKey.arrowUp):
+            const DirectionalFocusIntent(TraversalDirection.up),
+        LogicalKeySet(LogicalKeyboardKey.arrowDown):
+            const DirectionalFocusIntent(TraversalDirection.down),
+        LogicalKeySet(LogicalKeyboardKey.tab): const ActivateIntent(),
+      };
 
-    setState(() {
-      _table = List<List<String>>.from(layout['table'].map((row) =>
-          List<String>.from(row.map((cell) => cell == '-' ? '-' : ''))));
-      _words = layout['result'];
-      _selectedRow = -1;
-      _selectedCol = -1;
-      _isHorizontal = true;
-      _highlightedWordDescription = "";
-    });
-  }
-
-  List<Map<String, dynamic>> ensureDynamic(List<Map<String, dynamic>> input) {
-    return input.map((word) => Map<String, dynamic>.from(word)).toList();
-  }
-
-  void _onCellTap(int row, int col) {
-    setState(() {
-      bool hasVertical = false;
-      int rowStart = row;
-      while (rowStart > 0 && _table[rowStart - 1][col] != '-') {
-        rowStart--;
-      }
-      int rowEnd = row;
-      while (rowEnd < _table.length - 1 && _table[rowEnd + 1][col] != '-') {
-        rowEnd++;
-      }
-      if (rowEnd > rowStart) {
-        hasVertical = true;
-      }
-
-      bool hasHorizontal = false;
-      int colStart = col;
-      while (colStart > 0 && _table[row][colStart - 1] != '-') {
-        colStart--;
-      }
-      int colEnd = col;
-      while (colEnd < _table[0].length - 1 && _table[row][colEnd + 1] != '-') {
-        colEnd++;
-      }
-      if (colEnd > colStart) {
-        hasHorizontal = true;
-      }
-
-      if (_selectedRow == row && _selectedCol == col) {
-        if (hasHorizontal && hasVertical) {
-          _isHorizontal = !_isHorizontal;
-        }
-      } else {
-        _selectedRow = row;
-        _selectedCol = col;
-        _isHorizontal = hasHorizontal || !hasVertical;
-      }
-
-      _highlightedWordDescription =
-          _getWordDescription(row, col, _isHorizontal);
-
-      // Ensure focus is set to the input field
-      FocusScope.of(context).requestFocus(_focusNode);
-      SystemChannels.textInput.invokeMethod('TextInput.show');
-
-      // Clear the input controller
-      _inputController.clear();
-    });
-  }
-
-  void revealCurrentCellLetter() {
-    if (_selectedRow != -1 && _selectedCol != -1) {
-      setState(() {
-        for (var word in _words) {
-          if (word['orientation'] == 'across') {
-            int startY = word['starty'] - 1;
-            int startX = word['startx'] - 1;
-            if (startY == _selectedRow &&
-                startX <= _selectedCol &&
-                startX + word['answer'].length > _selectedCol) {
-              _table[_selectedRow][_selectedCol] =
-                  word['answer'][_selectedCol - startX].toUpperCase();
-              _revealedCells
-                  .add('$_selectedRow,$_selectedCol'); // Mark as revealed
-              break;
-            }
-          } else if (word['orientation'] == 'down') {
-            int startY = word['starty'] - 1;
-            int startX = word['startx'] - 1;
-            if (startX == _selectedCol &&
-                startY <= _selectedRow &&
-                startY + word['answer'].length > _selectedRow) {
-              _table[_selectedRow][_selectedCol] =
-                  word['answer'][_selectedRow - startY].toUpperCase();
-              _revealedCells
-                  .add('$_selectedRow,$_selectedCol'); // Mark as revealed
-              break;
-            }
-          }
-        }
-
-        // Move to the next unsolved letter or word
-        _moveToNextUnsolvedLetterOrWord();
-
-        // Validate the word after revealing the letter
-        _validateWord();
-      });
-    }
-  }
-
-  void _moveToNextUnsolvedLetterOrWord() {
-    Map<String, int> boundaries = _getCurrentWordBoundaries();
-
-    if (_isHorizontal) {
-      for (int col = _selectedCol + 1; col <= boundaries['endCol']!; col++) {
-        if (!_isCellCompleted(_selectedRow, col) &&
-            _table[_selectedRow][col] != '-') {
-          _selectedCol = col;
-          return;
-        }
-      }
-    } else {
-      for (int row = _selectedRow + 1; row <= boundaries['endRow']!; row++) {
-        if (!_isCellCompleted(row, _selectedCol) &&
-            _table[row][_selectedCol] != '-') {
-          _selectedRow = row;
-          return;
-        }
-      }
-    }
-
-    // If no unsolved letter found in the current word, move to the next word
-    _moveToNextWord();
-  }
-
-  String _getWordDescription(int row, int col, bool isHorizontal) {
-    for (var word in _words) {
-      if (word['orientation'] == 'across' && isHorizontal) {
-        int startY = word['starty'] - 1;
-        int startX = word['startx'] - 1;
-        if (startY == row &&
-            startX <= col &&
-            startX + word['answer'].length > col) {
-          return word['description'];
-        }
-      } else if (word['orientation'] == 'down' && !isHorizontal) {
-        int startY = word['starty'] - 1;
-        int startX = word['startx'] - 1;
-        if (startX == col &&
-            startY <= row &&
-            startY + word['answer'].length > row) {
-          return word['description'];
-        }
-      }
-    }
-    return "";
-  }
-
-  List<List<bool>> _getHighlightedCells() {
-    List<List<bool>> highlightedCells = List.generate(
-        _table.length, (_) => List.filled(_table[0].length, false));
-
-    if (_selectedRow != -1 && _selectedCol != -1) {
-      if (_isHorizontal) {
-        int colStart = _selectedCol;
-        while (colStart > 0 && _table[_selectedRow][colStart - 1] != '-') {
-          colStart--;
-        }
-        int colEnd = _selectedCol;
-        while (colEnd < _table[0].length - 1 &&
-            _table[_selectedRow][colEnd + 1] != '-') {
-          colEnd++;
-        }
-        for (int col = colStart; col <= colEnd; col++) {
-          highlightedCells[_selectedRow][col] = true;
-        }
-      } else {
-        int rowStart = _selectedRow;
-        while (rowStart > 0 && _table[rowStart - 1][_selectedCol] != '-') {
-          rowStart--;
-        }
-        int rowEnd = _selectedRow;
-        while (rowEnd < _table.length - 1 &&
-            _table[rowEnd + 1][_selectedCol] != '-') {
-          rowEnd++;
-        }
-        for (int row = rowStart; row <= rowEnd; row++) {
-          highlightedCells[row][_selectedCol] = true;
-        }
-      }
-    }
-
-    return highlightedCells;
-  }
+  Map<Type, Action<Intent>> get _keyboardActions => {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) => _toggleOrientation()),
+      };
 
   Widget _buildGrid() {
-    if (_table.isEmpty) {
-      return Container();
-    }
+    return InteractiveViewer(
+      boundaryMargin: const EdgeInsets.all(20),
+      minScale: 0.8,
+      maxScale: 2.0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cellSize = _calculateCellSize(constraints);
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _puzzle.grid.length,
+              childAspectRatio: cellSize.width / cellSize.height,
+            ),
+            itemCount: _puzzle.grid.length * _puzzle.grid.length,
+            itemBuilder: (context, index) => _buildCell(index),
+          );
+        },
+      ),
+    );
+  }
 
-    List<List<bool>> highlightedCells = _getHighlightedCells();
+  Size _calculateCellSize(BoxConstraints constraints) {
+    final maxWidth = constraints.maxWidth / _puzzle.grid.length;
+    return Size(maxWidth, maxWidth);
+  }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
+  Widget _buildCell(int index) {
+    final row = index ~/ _puzzle.grid.length;
+    final col = index % _puzzle.grid.length;
+    final cell = _puzzle.grid[row][col];
+
+    return GestureDetector(
+      onTap: () {
+        _puzzle.selectCell(cell.position);
+        _focusNode.requestFocus();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: cell.isSelected
+                ? widget.style.selectedBorderColor
+                : widget.style.gridColor,
+            width: cell.isSelected ? 2 : 1,
+          ),
+          color: _getCellColor(cell),
+        ),
         child: Center(
-          child: Column(
-            children: _table.asMap().entries.map((entry) {
-              int rowIndex = entry.key;
-              List<String> row = entry.value;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: row.asMap().entries.map((cellEntry) {
-                  int colIndex = cellEntry.key;
-                  String cell = cellEntry.value;
-                  bool isCompletedCell = _isCellCompleted(rowIndex, colIndex);
-                  bool isSelected =
-                      rowIndex == _selectedRow && colIndex == _selectedCol;
-                  bool isHighlighted = highlightedCells[rowIndex][colIndex];
-
-                  if (cell == '-') {
-                    return Container(
-                      width: 30,
-                      height: 30,
-                      margin: EdgeInsets.all(1),
-                    );
-                  } else {
-                    return GestureDetector(
-                      onTap: () {
-                        _onCellTap(rowIndex, colIndex);
-                      },
-                      child: widget.style.cellBuilder != null
-                          ? widget.style.cellBuilder!(
-                              context,
-                              cell,
-                              isSelected,
-                              isHighlighted,
-                              isCompletedCell,
-                            )
-                          : Container(
-                              width: 30,
-                              height: 30,
-                              alignment: Alignment.center,
-                              margin: EdgeInsets.all(1),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.black),
-                                color: isCompletedCell
-                                    ? widget.style.wordCompleteColor
-                                    : isSelected
-                                        ? widget.style.currentCellColor
-                                        : isHighlighted
-                                            ? widget.style.wordHighlightColor
-                                            : Colors.white,
-                              ),
-                              child: Text(
-                                cell.toUpperCase(),
-                                style: widget.style.cellTextStyle,
-                              ),
-                            ),
-                    );
-                  }
-                }).toList(),
-              );
-            }).toList(),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: Text(
+              cell.displayValue,
+              key: ValueKey(cell.displayValue),
+              style: widget.style.cellTextStyle,
+            ),
           ),
         ),
       ),
     );
   }
 
-  void _validateWord() {
-    for (var word in _words) {
-      bool isCorrect = true;
-      if (word['orientation'] == 'across') {
-        int startY = word['starty'] - 1;
-        int startX = word['startx'] - 1;
-        for (int k = 0; k < word['answer'].length; k++) {
-          if (_table[startY][startX + k].toLowerCase() != word['answer'][k]) {
-            isCorrect = false;
-            break;
-          }
-        }
-        if (isCorrect) {
-          for (int k = 0; k < word['answer'].length; k++) {
-            _table[startY][startX + k] = word['answer'][k].toUpperCase();
-          }
-          word['completed'] = true;
-        }
-      } else if (word['orientation'] == 'down') {
-        int startY = word['starty'] - 1;
-        int startX = word['startx'] - 1;
-        for (int k = 0; k < word['answer'].length; k++) {
-          if (_table[startY + k][startX].toLowerCase() != word['answer'][k]) {
-            isCorrect = false;
-            break;
-          }
-        }
-        if (isCorrect) {
-          for (int k = 0; k < word['answer'].length; k++) {
-            _table[startY + k][startX] = word['answer'][k].toUpperCase();
-          }
-          word['completed'] = true;
-        }
-      }
-    }
-    if (_areAllWordsCompleted()) {
-      if (widget.onCrosswordCompleted != null) {
-        widget.onCrosswordCompleted!(); // Call the completion callback
-      } else {
-        _showCongratsDialog();
-      }
-    }
+  Color _getCellColor(CrosswordCell cell) {
+    if (cell.isSelected) return widget.style.selectedColor;
+    if (cell.isHighlighted) return widget.style.highlightColor;
+    if (cell.isRevealed) return widget.style.revealedColor;
+    if (cell.isCorrect) return widget.style.correctColor;
+    return widget.style.backgroundColor;
   }
 
-  bool _isCellCompleted(int row, int col) {
-    if (_revealedCells.contains('$row,$col')) {
-      return true; // Cell is revealed, thus completed
-    }
+  Widget _buildDescription() {
+    final currentWord = _puzzle.currentWord;
+    if (currentWord == null) return const SizedBox();
 
-    for (var word in _words) {
-      if (word.containsKey('completed') && word['completed']) {
-        if (word['orientation'] == 'across') {
-          int startY = word['starty'] - 1;
-          int startX = word['startx'] - 1;
-          num endX = startX + word['answer'].length - 1;
-          if (startY == row && startX <= col && endX >= col) {
-            return true;
-          }
-        } else if (word['orientation'] == 'down') {
-          int startY = word['starty'] - 1;
-          int startX = word['startx'] - 1;
-          num endY = startY + word['answer'].length - 1;
-          if (startX == col && startY <= row && endY >= row) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  int _currentWordIndex = -1;
-  void _moveToPreviousWord() {
-    if (_words.isEmpty) return;
-
-    if (_currentWordIndex == -1) {
-      _currentWordIndex = _words.indexWhere(
-          (word) => !word.containsKey('completed') || !word['completed']);
-    } else {
-      _currentWordIndex--;
-    }
-
-    if (_currentWordIndex < 0) {
-      _currentWordIndex = _words.length - 1;
-    }
-
-    setState(() {
-      var word = _words[_currentWordIndex];
-      _isHorizontal = word['orientation'] == 'across';
-      _selectedRow = word['starty'] - 1;
-      _selectedCol = word['startx'] - 1;
-      _highlightedWordDescription = word['description'];
-      while (_isCellCompleted(_selectedRow, _selectedCol)) {
-        if (_isHorizontal) {
-          if (_selectedCol + 1 < _table[0].length) {
-            _selectedCol++;
-          } else {
-            break;
-          }
-        } else {
-          if (_selectedRow + 1 < _table.length) {
-            _selectedRow++;
-          } else {
-            break;
-          }
-        }
-      }
-    });
-  }
-
-  void _moveToNextWord() {
-    if (_words.isEmpty) return;
-
-    if (_currentWordIndex == -1) {
-      _currentWordIndex = _words.indexWhere(
-          (word) => !word.containsKey('completed') || !word['completed']);
-    } else {
-      _currentWordIndex++;
-    }
-
-    if (_currentWordIndex >= _words.length) {
-      _currentWordIndex = 0;
-    }
-
-    setState(() {
-      var word = _words[_currentWordIndex];
-      _isHorizontal = word['orientation'] == 'across';
-      _selectedRow = word['starty'] - 1;
-      _selectedCol = word['startx'] - 1;
-      _highlightedWordDescription = word['description'];
-      while (_isCellCompleted(_selectedRow, _selectedCol)) {
-        if (_isHorizontal) {
-          if (_selectedCol + 1 < _table[0].length) {
-            _selectedCol++;
-          } else {
-            break;
-          }
-        } else {
-          if (_selectedRow + 1 < _table.length) {
-            _selectedRow++;
-          } else {
-            break;
-          }
-        }
-      }
-    });
-  }
-
-  void _handleInput() {
-    if (_selectedRow != -1 &&
-        _selectedCol != -1 &&
-        _inputController.text.isNotEmpty) {
-      setState(() {
-        String inputLetter = _inputController.text[0].toLowerCase();
-        if (!_isCellCompleted(_selectedRow, _selectedCol) &&
-            _table[_selectedRow][_selectedCol].toLowerCase() != inputLetter) {
-          _table[_selectedRow][_selectedCol] = inputLetter;
-        }
-        _inputController.clear();
-
-        Map<String, int> boundaries = _getCurrentWordBoundaries();
-
-        if (_isHorizontal) {
-          for (int col = _selectedCol + 1;
-              col <= boundaries['endCol']!;
-              col++) {
-            if (!_isCellCompleted(_selectedRow, col) &&
-                _table[_selectedRow][col] != '-') {
-              _selectedCol = col;
-              break;
-            }
-          }
-        } else {
-          for (int row = _selectedRow + 1;
-              row <= boundaries['endRow']!;
-              row++) {
-            if (!_isCellCompleted(row, _selectedCol) &&
-                _table[row][_selectedCol] != '-') {
-              _selectedRow = row;
-              break;
-            }
-          }
-        }
-
-        if (_isWordComplete()) {
-          _validateWord();
-          _moveToNextWord();
-        }
-      });
-    }
-  }
-
-  int _getWordLength(int row, int col, bool isHorizontal) {
-    for (var word in _words) {
-      if (word['orientation'] == (isHorizontal ? 'across' : 'down')) {
-        int startY = word['starty'] - 1;
-        int startX = word['startx'] - 1;
-        if (isHorizontal) {
-          if (startY == row &&
-              startX <= col &&
-              startX + word['answer'].length > col) {
-            return word['answer'].length;
-          }
-        } else {
-          if (startX == col &&
-              startY <= row &&
-              startY + word['answer'].length > row) {
-            return word['answer'].length;
-          }
-        }
-      }
-    }
-    return 0;
-  }
-
-  bool _isWordComplete() {
-    for (var word in _words) {
-      if (word['orientation'] == (_isHorizontal ? 'across' : 'down')) {
-        int startY = word['starty'] - 1;
-        int startX = word['startx'] - 1;
-        if (_isHorizontal) {
-          if (startY == _selectedRow &&
-              startX <= _selectedCol &&
-              startX + word['answer'].length > _selectedCol) {
-            for (int k = 0; k < word['answer'].length; k++) {
-              if (_table[startY][startX + k].toLowerCase() !=
-                  word['answer'][k]) {
-                return false;
-              }
-            }
-            return true;
-          }
-        } else {
-          if (startX == _selectedCol &&
-              startY <= _selectedRow &&
-              startY + word['answer'].length > _selectedRow) {
-            for (int k = 0; k < word['answer'].length; k++) {
-              if (_table[startY + k][startX].toLowerCase() !=
-                  word['answer'][k]) {
-                return false;
-              }
-            }
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  Map<String, int> _getCurrentWordBoundaries() {
-    int startRow = _selectedRow;
-    int endRow = _selectedRow;
-    int startCol = _selectedCol;
-    int endCol = _selectedCol;
-
-    if (_isHorizontal) {
-      while (startCol > 0 && _table[_selectedRow][startCol - 1] != '-') {
-        startCol--;
-      }
-      while (endCol < _table[0].length - 1 &&
-          _table[_selectedRow][endCol + 1] != '-') {
-        endCol++;
-      }
-    } else {
-      while (startRow > 0 && _table[startRow - 1][_selectedCol] != '-') {
-        startRow--;
-      }
-      while (endRow < _table.length - 1 &&
-          _table[endRow + 1][_selectedCol] != '-') {
-        endRow++;
-      }
-    }
-
-    return {
-      'startRow': startRow,
-      'endRow': endRow,
-      'startCol': startCol,
-      'endCol': endCol,
-    };
-  }
-
-  void _handleKeyEvent(RawKeyEvent event) {
-    if (event is RawKeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace) {
-      setState(() {
-        if (_selectedRow != -1 &&
-            _selectedCol != -1 &&
-            !_isCellCompleted(_selectedRow, _selectedCol)) {
-          _table[_selectedRow][_selectedCol] = '';
-
-          Map<String, int> boundaries = _getCurrentWordBoundaries();
-
-          if (_isHorizontal) {
-            for (int col = _selectedCol - 1;
-                col >= boundaries['startCol']!;
-                col--) {
-              if (!_isCellCompleted(_selectedRow, col) &&
-                  _table[_selectedRow][col] != '-') {
-                _selectedCol = col;
-                return;
-              }
-            }
-          } else {
-            for (int row = _selectedRow - 1;
-                row >= boundaries['startRow']!;
-                row--) {
-              if (!_isCellCompleted(row, _selectedCol) &&
-                  _table[row][_selectedCol] != '-') {
-                _selectedRow = row;
-                return;
-              }
-            }
-          }
-        }
-      });
-    }
-  }
-
-  bool _areAllWordsCompleted() {
-    for (var word in _words) {
-      if (!word.containsKey('completed') || !word['completed']) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  void _showCongratsDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Congratulations!'),
-          content: Text('You have completed the crossword puzzle.'),
-          actions: [
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(
+                'Clue (${currentWord.orientation.toString().split('.').last}):',
+                style: widget.style.clueHeaderStyle,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                currentWord.clue,
+                style: widget.style.clueTextStyle,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_focusNode.hasFocus) {
-          _focusNode.unfocus();
-          return false;
-        }
-        return true;
-      },
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height,
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      constraints: BoxConstraints(),
-                      child: _buildGrid(),
-                    ),
-                    Offstage(
-                      child: TextField(
-                        focusNode: _focusNode,
-                        controller: _inputController,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                        ),
-                        autofocus: true,
-                        showCursor: false,
-                        maxLength: 1,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'[a-zA-Z]')),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_highlightedWordDescription.isNotEmpty)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black.withOpacity(0.8),
-                padding: EdgeInsets.all(10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed: _moveToPreviousWord,
-                      child: Text('<'),
-                      style: widget.style.descriptionButtonStyle,
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Description:',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            _highlightedWordDescription,
-                            style: TextStyle(color: Colors.white),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: _moveToNextWord,
-                      child: Text('>'),
-                      style: widget.style.descriptionButtonStyle,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+  void dispose() {
+    _puzzle.removeListener(_onPuzzleUpdate);
+    _focusNode.dispose();
+    _inputController.dispose();
+    super.dispose();
   }
+}
+
+// ====================== STYLE CONFIGURATION ======================
+class CrosswordStyle {
+  final Color backgroundColor;
+  final Color gridColor;
+  final Color selectedColor;
+  final Color selectedBorderColor;
+  final Color highlightColor;
+  final Color revealedColor;
+  final Color correctColor;
+  final TextStyle cellTextStyle;
+  final TextStyle clueHeaderStyle;
+  final TextStyle clueTextStyle;
+
+  const CrosswordStyle({
+    this.backgroundColor = Colors.white,
+    this.gridColor = Colors.black54,
+    this.selectedColor =
+        const Color(0x1A0000FF), // Predefined color with opacity
+    this.selectedBorderColor = Colors.blue,
+    this.highlightColor = const Color.fromRGBO(0, 0, 255, 0.05),
+    this.revealedColor = const Color.fromRGBO(0, 255, 0, 0.2),
+    this.correctColor = const Color.fromRGBO(0, 255, 0, 0.1),
+    this.cellTextStyle =
+        const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    this.clueHeaderStyle =
+        const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    this.clueTextStyle = const TextStyle(fontSize: 16),
+  });
 }
