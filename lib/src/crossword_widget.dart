@@ -35,6 +35,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
   @override
   void initState() {
     super.initState();
+    _inputController
+        .removeListener(_handleInput); // Ensure no duplicate listeners
     _inputController.addListener(_handleInput);
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
@@ -655,16 +657,21 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
     return true;
   }
 
+  static const String congratsTitle = 'Congratulations!';
+  static const String congratsMessage =
+      'You have completed the crossword puzzle.';
+  static const String okButtonLabel = 'OK';
+
   void _showCongratsDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Congratulations!'),
-          content: Text('You have completed the crossword puzzle.'),
+          title: Text(congratsTitle),
+          content: Text(congratsMessage),
           actions: [
             TextButton(
-              child: Text('OK'),
+              child: Text(okButtonLabel),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -681,6 +688,12 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       onWillPop: () async {
         if (_focusNode.hasFocus) {
           _focusNode.unfocus();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Tap outside the input field to navigate back.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
           return false;
         }
         return true;
