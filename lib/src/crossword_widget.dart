@@ -359,10 +359,30 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       autofocus: true,
       shortcuts: _keyboardShortcuts,
       actions: _keyboardActions,
-      child: Column(
+      child: Stack(
         children: [
-          _buildGrid(),
-          _buildDescription(),
+          Column(
+            children: [
+              _buildGrid(),
+              _buildDescription(),
+            ],
+          ),
+          // Hidden text field for keyboard input
+          Positioned(
+            left: -100,
+            child: Opacity(
+              opacity: 0,
+              child: TextField(
+                focusNode: _focusNode,
+                controller: _inputController,
+                autofocus: false,
+                maxLength: 1,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -422,6 +442,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       onTap: () {
         _puzzle.selectCell(cell.position);
         _focusNode.requestFocus();
+        // Show keyboard explicitly
+        SystemChannels.textInput.invokeMethod('TextInput.show');
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -486,6 +508,7 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
 
   @override
   void dispose() {
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
     _puzzle.removeListener(_onPuzzleUpdate);
     _focusNode.dispose();
     _inputController.dispose();
