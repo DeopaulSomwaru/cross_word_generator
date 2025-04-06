@@ -698,90 +698,88 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
         }
         return true;
       },
-      child: Scaffold(
-        resizeToAvoidBottomInset: false, // This is the key line
-        body: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height,
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        constraints: BoxConstraints(),
-                        child: _buildGrid(),
-                      ),
-                      Offstage(
-                        child: TextField(
-                          focusNode: _focusNode,
-                          controller: _inputController,
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                          ),
-                          autofocus: false,
-                          showCursor: false,
-                          maxLength: 1,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                                RegExp(r'[a-zA-Z]')),
-                          ],
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height,
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      constraints: BoxConstraints(),
+                      child: _buildGrid(),
+                    ),
+                    Offstage(
+                      child: TextField(
+                        focusNode: _focusNode,
+                        controller: _inputController,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
                         ),
+                        autofocus: false,
+                        showCursor: false,
+                        maxLength: 1,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z]')),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (_highlightedWordDescription.isNotEmpty)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  color: Colors.black.withOpacity(0.8),
-                  padding: EdgeInsets.all(10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _moveToPreviousWord,
-                        child: Text('<'),
-                        style: widget.style.descriptionButtonStyle,
+          ),
+          if (_highlightedWordDescription.isNotEmpty)
+            Positioned(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              // bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.black.withOpacity(0.8),
+                padding: EdgeInsets.all(10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _moveToPreviousWord,
+                      child: Text('<'),
+                      style: widget.style.descriptionButtonStyle,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Description:',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            _highlightedWordDescription,
+                            style: TextStyle(color: Colors.white),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Description:',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              _highlightedWordDescription,
-                              style: TextStyle(color: Colors.white),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: _moveToNextWord,
-                        child: Text('>'),
-                        style: widget.style.descriptionButtonStyle,
-                      ),
-                    ],
-                  ),
+                    ),
+                    ElevatedButton(
+                      onPressed: _moveToNextWord,
+                      child: Text('>'),
+                      style: widget.style.descriptionButtonStyle,
+                    ),
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
