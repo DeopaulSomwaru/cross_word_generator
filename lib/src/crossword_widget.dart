@@ -684,60 +684,61 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
 
   @override
   Widget build(BuildContext context) {
-//     @override
-// Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final viewInsets = mediaQuery.viewInsets;
-    final availableHeight = mediaQuery.size.height - viewInsets.bottom;
-
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Stack(
+    return WillPopScope(
+      onWillPop: () async {
+        if (_focusNode.hasFocus) {
+          _focusNode.unfocus();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Tap outside the input field to navigate back.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return false;
+        }
+        return true;
+      },
+      child: Stack(
         children: [
-          // Main grid content
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              height: availableHeight,
-              child: SingleChildScrollView(
-                physics: const NeverScrollableScrollPhysics(),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height,
+                ),
                 child: Column(
                   children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SizedBox(
-                          width: constraints.maxWidth,
-                          child: _buildGrid(),
-                        );
-                      },
+                    Container(
+                      width: double.infinity,
+                      constraints: BoxConstraints(),
+                      child: _buildGrid(),
+                    ),
+                    Offstage(
+                      child: TextField(
+                        focusNode: _focusNode,
+                        controller: _inputController,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                        ),
+                        autofocus: false,
+                        showCursor: false,
+                        maxLength: 1,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z]')),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-
-          // Hidden text field
-          Positioned(
-            left: -100,
-            child: Opacity(
-              opacity: 0,
-              child: TextField(
-                focusNode: _focusNode,
-                controller: _inputController,
-                autofocus: false,
-                maxLength: 1,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
-                ],
-              ),
-            ),
-          ),
-
-          // Description panel
           if (_highlightedWordDescription.isNotEmpty)
             Positioned(
-              bottom: viewInsets.bottom,
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              // bottom: 0,
               left: 0,
               right: 0,
               child: Container(
@@ -782,102 +783,4 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
       ),
     );
   }
-  // return WillPopScope(
-  //   onWillPop: () async {
-  //     if (_focusNode.hasFocus) {
-  //       _focusNode.unfocus();
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text('Tap outside the input field to navigate back.'),
-  //           duration: Duration(seconds: 2),
-  //         ),
-  //       );
-  //       return false;
-  //     }
-  //     return true;
-  //   },
-  //   child: Stack(
-  //     children: [
-  //       Padding(
-  //         padding: const EdgeInsets.all(16.0),
-  //         child: SingleChildScrollView(
-  //           child: ConstrainedBox(
-  //             constraints: BoxConstraints(
-  //               minHeight: MediaQuery.of(context).size.height,
-  //             ),
-  //             child: Column(
-  //               children: [
-  //                 Container(
-  //                   width: double.infinity,
-  //                   constraints: BoxConstraints(),
-  //                   child: _buildGrid(),
-  //                 ),
-  //                 Offstage(
-  //                   child: TextField(
-  //                     focusNode: _focusNode,
-  //                     controller: _inputController,
-  //                     decoration: InputDecoration(
-  //                       border: InputBorder.none,
-  //                     ),
-  //                     autofocus: false,
-  //                     showCursor: false,
-  //                     maxLength: 1,
-  //                     inputFormatters: [
-  //                       FilteringTextInputFormatter.allow(
-  //                           RegExp(r'[a-zA-Z]')),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ),
-  //       ),
-  //       if (_highlightedWordDescription.isNotEmpty)
-  //         Positioned(
-  //           bottom: MediaQuery.of(context).viewInsets.bottom,
-  //           // bottom: 0,
-  //           left: 0,
-  //           right: 0,
-  //           child: Container(
-  //             color: Colors.black.withOpacity(0.8),
-  //             padding: EdgeInsets.all(10),
-  //             child: Row(
-  //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //               children: [
-  //                 ElevatedButton(
-  //                   onPressed: _moveToPreviousWord,
-  //                   child: Text('<'),
-  //                   style: widget.style.descriptionButtonStyle,
-  //                 ),
-  //                 Expanded(
-  //                   child: Column(
-  //                     crossAxisAlignment: CrossAxisAlignment.center,
-  //                     children: [
-  //                       Text(
-  //                         'Description:',
-  //                         style: TextStyle(
-  //                             color: Colors.white,
-  //                             fontWeight: FontWeight.bold),
-  //                       ),
-  //                       Text(
-  //                         _highlightedWordDescription,
-  //                         style: TextStyle(color: Colors.white),
-  //                         textAlign: TextAlign.center,
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //                 ElevatedButton(
-  //                   onPressed: _moveToNextWord,
-  //                   child: Text('>'),
-  //                   style: widget.style.descriptionButtonStyle,
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ),
-  //     ],
-  //   ),
-  // );
 }
