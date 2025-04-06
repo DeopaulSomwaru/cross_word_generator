@@ -721,7 +721,7 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
                         decoration: InputDecoration(
                           border: InputBorder.none,
                         ),
-                        autofocus: true,
+                        autofocus: false,
                         showCursor: false,
                         maxLength: 1,
                         inputFormatters: [
