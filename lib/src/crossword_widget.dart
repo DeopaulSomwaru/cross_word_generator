@@ -253,12 +253,106 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
     return highlightedCells;
   }
 
+  // Widget _buildGrid() {
+  //   if (_table.isEmpty) {
+  //     return Container();
+  //   }
+
+  //   List<List<bool>> highlightedCells = _getHighlightedCells();
+
+  //   return SingleChildScrollView(
+  //     scrollDirection: Axis.horizontal,
+  //     child: SingleChildScrollView(
+  //       scrollDirection: Axis.vertical,
+  //       child: Center(
+  //         child: Column(
+  //           children: _table.asMap().entries.map((entry) {
+  //             int rowIndex = entry.key;
+  //             List<String> row = entry.value;
+  //             return Row(
+  //               mainAxisAlignment: MainAxisAlignment.center,
+  //               children: row.asMap().entries.map((cellEntry) {
+  //                 int colIndex = cellEntry.key;
+  //                 String cell = cellEntry.value;
+  //                 bool isCompletedCell = _isCellCompleted(rowIndex, colIndex);
+  //                 bool isSelected =
+  //                     rowIndex == _selectedRow && colIndex == _selectedCol;
+  //                 bool isHighlighted = highlightedCells[rowIndex][colIndex];
+
+  //                 if (cell == '-') {
+  //                   return Container(
+  //                     width: 30,
+  //                     height: 30,
+  //                     margin: EdgeInsets.all(1),
+  //                   );
+  //                 } else {
+  //                   return GestureDetector(
+  //                     onTap: () {
+  //                       _onCellTap(rowIndex, colIndex);
+  //                     },
+  //                     child: widget.style.cellBuilder != null
+  //                         ? widget.style.cellBuilder!(
+  //                             context,
+  //                             cell,
+  //                             isSelected,
+  //                             isHighlighted,
+  //                             isCompletedCell,
+  //                           )
+  //                         : Container(
+  //                             width: 30,
+  //                             height: 30,
+  //                             alignment: Alignment.center,
+  //                             margin: EdgeInsets.all(1),
+  //                             decoration: BoxDecoration(
+  //                               border: Border.all(color: Colors.black),
+  //                               color: isCompletedCell
+  //                                   ? widget.style.wordCompleteColor
+  //                                   : isSelected
+  //                                       ? widget.style.currentCellColor
+  //                                       : isHighlighted
+  //                                           ? widget.style.wordHighlightColor
+  //                                           : Colors.white,
+  //                             ),
+  //                             child: Text(
+  //                               cell.toUpperCase(),
+  //                               style: widget.style.cellTextStyle,
+  //                             ),
+  //                           ),
+  //                   );
+  //                 }
+  //               }).toList(),
+  //             );
+  //           }).toList(),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _buildGrid() {
     if (_table.isEmpty) {
       return Container();
     }
 
     List<List<bool>> highlightedCells = _getHighlightedCells();
+
+    // Get screen width and height
+    double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    int columnCount = _table[0].length;
+    int rowCount = _table.length;
+
+    // Calculate max width and height available for the grid (optional padding)
+    double maxGridWidth = screenWidth * 0.95;
+    double maxGridHeight = screenHeight * 0.6;
+
+    // Calculate cell size based on grid dimensions
+    double cellWidth = maxGridWidth / columnCount;
+    double cellHeight = maxGridHeight / rowCount;
+    double cellSize = cellWidth < cellHeight ? cellWidth : cellHeight;
+
+    // Optional: Cap max cell size (to avoid huge cells on tablets)
+    cellSize = cellSize.clamp(20.0, 50.0);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -281,8 +375,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
 
                   if (cell == '-') {
                     return Container(
-                      width: 30,
-                      height: 30,
+                      width: cellSize,
+                      height: cellSize,
                       margin: EdgeInsets.all(1),
                     );
                   } else {
@@ -299,8 +393,8 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
                               isCompletedCell,
                             )
                           : Container(
-                              width: 30,
-                              height: 30,
+                              width: cellSize,
+                              height: cellSize,
                               alignment: Alignment.center,
                               margin: EdgeInsets.all(1),
                               decoration: BoxDecoration(
@@ -315,7 +409,9 @@ class _CrosswordWidgetState extends State<CrosswordWidget> {
                               ),
                               child: Text(
                                 cell.toUpperCase(),
-                                style: widget.style.cellTextStyle,
+                                style: widget.style.cellTextStyle.copyWith(
+                                  fontSize: cellSize * 0.4, // auto-scale font
+                                ),
                               ),
                             ),
                     );
